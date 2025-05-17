@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     PROJECT_VERSION: str = "0.1.0"
 
     # Database placeholder (example, replace with your actual connection string via .env)
-    DATABASE_URL: str = "sqlite:///./test_api.db" # Default to a local SQLite for simplicity
+    DATABASE_URL: str = "postgresql://nexus_user:nexus_password@localhost:5432/nexus_db" # Default to a local SQLite for simplicity
 
     # LLM Service Placeholders (load from environment variables)
     OPENAI_API_KEY: str = "your_openai_api_key_here"

@@ -1,9 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import SQLModel
 
 from app.api.v1.endpoints import documents as documents_v1, helloGemini
 from app.core.config import settings
+from app.core.database import engine
 
+
+def init_db():
+    if settings.ENV == "development":
+        SQLModel.metadata.create_all(engine)
+
+init_db()
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
@@ -32,8 +40,7 @@ origins = [
     "http://localhost",       # Common local origin
     "http://localhost:3000",  # Default Next.js dev port
     "http://127.0.0.1:3000", # Another way Next.js dev might be accessed
-    # Add your deployed frontend's URL here when you deploy
-    # e.g., "https://your-nexus-frontend.com"
+
 ]
 
 app.add_middleware(
