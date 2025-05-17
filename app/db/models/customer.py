@@ -2,7 +2,7 @@ from typing import Optional, List
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
-from app.db.models.call_session import CallSession
+
 from app.db.models.company import Company
 
 

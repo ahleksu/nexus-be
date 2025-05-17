@@ -3,7 +3,6 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
 from app.db.models.company import Company
-from app.db.models.resolution import Resolution
 
 
 class Department(SQLModel, table=True):

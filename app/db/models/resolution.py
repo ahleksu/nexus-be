@@ -4,7 +4,6 @@ from sqlmodel import SQLModel, Field, Relationship
 
 from app.db.models.agent import Agent
 from app.db.models.company import Company
-from app.db.models.department import Department
 
 
 class Resolution(SQLModel, table=True):

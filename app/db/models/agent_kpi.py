@@ -3,16 +3,11 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
 from app.db.models.agent import Agent
-from app.db.models.call_session import CallSession
-
 
 class AgentKpi(SQLModel, table=True):
 
     kpi_id: Optional[int] = Field(default=None, primary_key=True, index=True)
-    call_session_id: int = Field(foreign_key="call_sessions.call_session_id",
-        nullable=False,
-        index=True,
-    )
+
 
     grade: Optional[float] = Field(default=None)
     summary: Optional[str] = Field(default=None)

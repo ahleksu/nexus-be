@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from sqlmodel import SQLModel, Field, Relationship
 
-from app.db.models.call_session import CallSession
+
 
 
 class TranscriptionRole(str, Enum):
