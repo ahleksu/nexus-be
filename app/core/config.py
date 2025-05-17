@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = "your_openai_api_key_here"
     GEMINI_API_KEY: str = "your_gemini_api_key_here"
 
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
 
 settings = Settings()

@@ -3,15 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 
 from app.api.v1.endpoints import documents as documents_v1, helloGemini
+from app.call import call_router
 from app.core.config import settings
 from app.core.database import engine
 
 
-def init_db():
-    if settings.ENV == "development":
-        SQLModel.metadata.create_all(engine)
-
-init_db()
+# def init_db():
+#     if settings.ENV == "development":
+#         SQLModel.metadata.create_all(engine)
+#
+# init_db()
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
@@ -60,7 +61,7 @@ app.include_router(
 )
 
 app.include_router(helloGemini.router)
-
+app.include_router(call_router.router)
 # Root endpoint for basic API health check or welcome message
 @app.get("/", tags=["Root"])
 async def read_root():
