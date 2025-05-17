@@ -6,7 +6,7 @@ from app.api.v1.endpoints import documents as documents_v1, helloGemini
 from app.call import call_router
 from app.core.config import settings
 from app.core.database import engine
-
+from app.transcribe import transcribe_router
 
 # def init_db():
 #     if settings.ENV == "development":
@@ -62,6 +62,8 @@ app.include_router(
 
 app.include_router(helloGemini.router)
 app.include_router(call_router.router)
+app.include_router(transcribe_router.router)
+
 # Root endpoint for basic API health check or welcome message
 @app.get("/", tags=["Root"])
 async def read_root():
