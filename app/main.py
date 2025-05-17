@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.endpoints import documents as documents_v1
+from app.api.v1.endpoints import documents as documents_v1, helloGemini
 from app.core.config import settings
 
 # Initialize FastAPI app
@@ -51,6 +51,8 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/documents",
     tags=["Documents & LLM Features"] # Tag for grouping in Swagger UI
 )
+
+app.include_router(helloGemini.router)
 
 # Root endpoint for basic API health check or welcome message
 @app.get("/", tags=["Root"])
