@@ -1,6 +1,21 @@
 version: "3.9"
 
 services:
+  web:
+    build: .
+    container_name: nexus-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ~/.aws:/home/myuser/.aws
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - my_network
+
   db:
     image: postgres:15-alpine
     container_name: nexus_postgres_db
@@ -16,3 +31,8 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  my_network:
+    driver: bridge
+
