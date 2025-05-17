@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  hwork_api_prod:
+    image: nexus-api-prod:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - ENV=production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+    restart: unless-stopped
+    networks:
+      - my_network_prod
+
+networks:
+  my_network_prod:
+    driver: bridge
