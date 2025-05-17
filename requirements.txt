@@ -1,0 +1,5 @@
+fastapi[standard]
+pydantic_settings
+# For a real database, you might add:
+# sqlalchemy==2.0.29
+# psycopg2-binary # For PostgreSQL
