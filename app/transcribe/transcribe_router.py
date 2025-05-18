@@ -1,3 +1,6 @@
+import asyncio
+import time
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, APIRouter
 from fastapi.responses import JSONResponse
 import boto3
@@ -7,6 +10,7 @@ from typing import List
 import os
 import requests
 from dotenv import load_dotenv
+from openai import OpenAI
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -256,3 +260,216 @@ def parse_datetime(timestamp_str: str) -> datetime:
 @router.get("/")
 async def health_check():
     return {"status": "healthy", "service": "audio-transcription-api"}
+
+
+@router.get("/helper/{job_id}")
+async def helper(job_id: str):
+    """Check status of a transcription job and get assistant response in one call"""
+    try:
+        # 1. First get the transcription status
+        status = transcribe_client.get_transcription_job(TranscriptionJobName=job_id)
+        job_status = status['TranscriptionJob']['TranscriptionJobStatus']
+
+        if job_status == 'IN_PROGRESS':
+            return JSONResponse(content={"status": "in_progress"}, status_code=200)
+
+        if job_status == 'FAILED':
+            raise HTTPException(
+                status_code=500,
+                detail=status['TranscriptionJob'].get('FailureReason', 'Unknown error')
+            )
+
+        # 2. Get the transcript
+        transcript_key = f"transcriptions/{job_id}.json"
+        cloudfront_url = f"https://d2wvh13x6zr3i2.cloudfront.net/{transcript_key}"
+
+        response = requests.get(cloudfront_url, timeout=10)
+        response.raise_for_status()
+        transcript_response = response.json()
+
+        # 3. Process transcript into compact format
+        word_items = []
+        for item in transcript_response.get('results', {}).get('items', []):
+            if item.get('type') == 'pronunciation' and 'start_time' in item:
+                word_items.append({
+                    "agent_name": item.get('speaker_label', 'spk_0'),
+                    "content": item['alternatives'][0]['content']
+                })
+
+        # Group into phrases
+        grouped_transcriptions = []
+        if word_items:
+            current_speaker = word_items[0]['agent_name']
+            current_phrase = []
+
+            for item in word_items:
+                if item['agent_name'] != current_speaker:
+                    if current_phrase:
+                        grouped_transcriptions.append({
+                            "agent_name": current_speaker,
+                            "content": ' '.join(current_phrase)
+                        })
+                    current_speaker = item['agent_name']
+                    current_phrase = [item['content']]
+                else:
+                    current_phrase.append(item['content'])
+
+            if current_phrase:
+                grouped_transcriptions.append({
+                    "agent_name": current_speaker,
+                    "content": ' '.join(current_phrase)
+                })
+
+        compact_transcript = "\n".join(
+            [f"{item['agent_name']} - {item['content']}"
+             for item in grouped_transcriptions]
+        )
+
+        # 4. Create thread and message
+        thread = client.beta.threads.create()
+        message = client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=compact_transcript
+        )
+
+        # 5. Run assistant
+        run = client.beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id=assistant_id,
+            instructions=(
+                "You are a smart assistant for a customer support agent. "
+                "Customer support will accept calls that will be transcribed real-time. "
+                "During the conversation, find meaningful insights that can help the agent with their responses. "
+                "Always look for relevant information in the document files that are uploaded and follow these rules:\n"
+                "1. Create engaging responses in Markdown format\n"
+                "2. Always add references to information you have extracted\n"
+                "3. Filter, assess, and rank the best response you can suggest to the agent"
+            )
+        )
+
+        # Wait for completion
+        while True:
+            run_status = client.beta.threads.runs.retrieve(
+                thread_id=thread.id,
+                run_id=run.id
+            )
+            if run_status.status == "completed":
+                break
+            elif run_status.status == "failed":
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Assistant run failed: {run_status.last_error}"
+                )
+            await asyncio.sleep(1)
+
+        # 6. Get assistant response
+        messages = client.beta.threads.messages.list(thread_id=thread.id)
+        assistant_messages = [
+            msg for msg in messages.data
+            if msg.role == "assistant"
+        ]
+
+        if not assistant_messages:
+            raise HTTPException(
+                status_code=500,
+                detail="No response from assistant"
+            )
+
+        return {
+            "transcript": compact_transcript,
+            "assistant_response": assistant_messages[0].content[0].text.value,
+            "thread_id": thread.id
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process request: {str(e)}"
+        )
+# Initialize OpenAI client
+api_key = settings.OPENAI_API_KEY
+client = OpenAI(api_key=api_key)
+
+# Assistant and Thread IDs
+assistant_id = "asst_BLo4eW6f3AOQgfiwO0dCcP8e"
+thread_id = "your-thread-id"  # You're creating a new thread now, so this might not be needed
+vector_store_id = "vs_68291cba43e881918053971d1ca979f0"
+
+
+async def create_message(content):
+    """Helper function to create a message in the assistant thread"""
+    try:
+        # Create a new thread for each conversation
+        new_thread = client.beta.threads.create()
+
+        # Ensure content is a string and not too long
+        if isinstance(content, (list, dict)):
+            content = str(content)
+
+        # Truncate content if it's too long (OpenAI has limits)
+        max_length = 32768  # OpenAI's maximum message length
+        if len(content) > max_length:
+            content = content[:max_length] + "... [truncated]"
+
+        message = client.beta.threads.messages.create(
+            thread_id=new_thread.id,
+            role="user",
+            content=content
+        )
+
+        # Return both thread and message info
+        return {
+            "thread_id": new_thread.id,
+            "message": message,
+            "status": "success"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create message: {str(e)}"
+        )
+
+
+async def run_assistant(thread_id: str):
+    """Helper function to run the assistant on a specific thread"""
+    try:
+        run = client.beta.threads.runs.create(
+            thread_id=thread_id,
+            assistant_id=assistant_id,
+            instructions=(
+                "You are a smart assistant for a customer support agent. "
+                "Customer support will accept calls that will be transcribed real-time. "
+                "During the conversation, find meaningful insights that can help the agent with their responses. "
+                "Always look for relevant information in the document files that are uploaded and follow these rules:\n"
+                "1. Create engaging responses in Markdown format\n"
+                "2. Always add references to information you have extracted\n"
+                "3. Filter, assess, and rank the best response you can suggest to the agent"
+            )
+        )
+
+        while True:
+            run_status = client.beta.threads.runs.retrieve(
+                thread_id=thread_id,
+                run_id=run.id
+            )
+            if run_status.status == "completed":
+                break
+            elif run_status.status == "failed":
+                return {"error": f"Run failed: {run_status.last_error}"}
+            await asyncio.sleep(2)
+
+        # Retrieve the assistant's response
+        messages = client.beta.threads.messages.list(
+            thread_id=thread_id
+        )
+
+        return {
+            "success": True,
+            "messages": messages.data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run assistant: {str(e)}"
+        )

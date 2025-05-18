@@ -10,12 +10,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://nexus_user:nexus_password@localhost:5432/nexus_db" # Default to a local SQLite for simplicity
 
     # LLM Service Placeholders (load from environment variables)
-    OPENAI_API_KEY: str = "your_openai_api_key_here"
+    OPENAI_API_KEY: str
     GEMINI_API_KEY: str = "your_gemini_api_key_here"
 
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str
     AWS_BUCKET_NAME: str
+
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
 
