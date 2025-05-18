@@ -40,7 +40,8 @@ and leveraging LLM capabilities for summarization and response suggestions.
 origins = [
     "http://localhost",       # Common local origin
     "http://localhost:3000",  # Default Next.js dev port
-    "http://127.0.0.1:3000", # Another way Next.js dev might be accessed
+    "http://127.0.0.1:3000",
+    "https://nexus-fe-fawn.vercel.app"# Another way Next.js dev might be accessed
 
 ]
 
